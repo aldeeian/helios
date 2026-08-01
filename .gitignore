@@ -1,0 +1,36 @@
+# Secrets — never committed. Real config goes in .env (see .env.example).
+.env
+*.pem
+*.key
+secrets/
+
+# Generated data — reproducible from `python -m src.datagen`, so never committed.
+# This also guarantees no dataset (even synthetic) leaks PII-shaped content into git history.
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# MLflow / artifacts (later phases)
+mlruns/
+mlartifacts/
+
+# Generated dashboard (build artifact; regenerate with `python -m powerbi.build_dashboard`).
+# The committed screenshots/ show it without a build step.
+powerbi/dashboard.html
+
+# Power BI model extract — regenerate with `python -m powerbi.export_model`.
+# Same rule as data/: derived from the seed, so it never enters git history.
+powerbi/model/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,30 @@
+[project]
+name = "helios"
+version = "0.1.0"
+description = "Operational forecasting & variance platform — synthetic data, reconciliation, forecasting, drift detection"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "openpyxl>=3.1",
+    "sqlalchemy>=2.0",
+    "python-dateutil>=2.9",
+    "statsmodels>=0.14",
+    "xgboost>=2.0",
+    "prophet>=1.1",
+    "mlflow>=2.14",
+    "sqlglot>=25.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+orchestration = ["prefect>=3.0"]
+# The NL agent's live path uses Claude; the offline stub + guardrails run
+# without it, so anthropic is an optional extra.
+agent = ["anthropic>=0.40"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
