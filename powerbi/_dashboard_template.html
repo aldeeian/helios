@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helios — Operational Forecasting & Variance</title>
+<style>
+:root {
+  --page:#f9f9f7; --surface:#fcfcfb; --text:#0b0b0b; --text2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+  --s1:#2a78d6; --s2:#1baf7a; --s3:#eda100; --s5:#4a3aa7;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --page:#0d0d0d; --surface:#1a1a19; --text:#fff; --text2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+  --s1:#3987e5; --s2:#199e70; --s3:#c98500; --s5:#9085e9; --good:#0ca30c;
+}}
+:root[data-theme=dark]{--page:#0d0d0d;--surface:#1a1a19;--text:#fff;--text2:#c3c2b7;--grid:#2c2c2a;--baseline:#383835;--border:rgba(255,255,255,0.10);--s1:#3987e5;--s2:#199e70;--s3:#c98500;--s5:#9085e9;}
+:root[data-theme=light]{--page:#f9f9f7;--surface:#fcfcfb;--text:#0b0b0b;--text2:#52514e;--grid:#e1e0d9;--baseline:#c3c2b7;--border:rgba(11,11,11,0.10);--s1:#2a78d6;--s2:#1baf7a;--s3:#eda100;--s5:#4a3aa7;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.45}
+header{padding:20px 24px 0;max-width:1200px;margin:0 auto}
+h1{font-size:20px;margin:0 0 2px}
+.sub{color:var(--text2);font-size:13px;margin:0}
+.tag{display:inline-block;font-size:11px;color:var(--text2);border:1px solid var(--border);border-radius:999px;padding:1px 9px;margin-left:6px;vertical-align:middle}
+nav{display:flex;gap:4px;flex-wrap:wrap;padding:14px 24px 0;max-width:1200px;margin:0 auto;border-bottom:1px solid var(--border)}
+nav button{background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font:inherit;font-weight:500;padding:8px 12px;cursor:pointer}
+nav button.on{color:var(--text);border-bottom-color:var(--s1)}
+main{max-width:1200px;margin:0 auto;padding:18px 24px 60px}
+.page{display:none}.page.on{display:block}
+.grid{display:grid;gap:16px}
+.k5{grid-template-columns:repeat(5,1fr)}
+.c2{grid-template-columns:2fr 1fr}
+.c2e{grid-template-columns:1fr 1fr}
+@media(max-width:820px){.k5,.c2,.c2e{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.card h3{margin:0 0 2px;font-size:13px;font-weight:600}
+.card .note{color:var(--muted);font-size:11px;margin:0 0 10px}
+.tile .val{font-size:26px;font-weight:650;letter-spacing:-0.02em;margin:6px 0 2px}
+.tile .lbl{color:var(--text2);font-size:12px}
+.tile .delta{font-size:12px;font-weight:600}
+.up{color:var(--critical)}.down{color:var(--good)}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.ax{fill:var(--muted);font-size:10px}
+.axtitle{fill:var(--text2);font-size:11px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text2);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:500}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.pill{font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600}
+.pill.good{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.pill.warn{background:color-mix(in srgb,var(--warning) 22%,transparent);color:var(--serious)}
+.pill.crit{background:color-mix(in srgb,var(--critical) 18%,transparent);color:var(--critical)}
+#tt{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.14);opacity:0;transition:opacity .08s;z-index:10;max-width:240px}
+#tt b{font-weight:650}
+.theme{position:absolute;top:20px;right:24px;font-size:12px;color:var(--text2);border:1px solid var(--border);border-radius:999px;padding:3px 12px;cursor:pointer;background:var(--surface)}
+.foot{color:var(--muted);font-size:11px;margin-top:24px;border-top:1px solid var(--border);padding-top:12px}
+</style>
+</head>
+<body>
+<div id="tt"></div>
+<header style="position:relative">
+  <button class="theme" id="themeBtn">◐ theme</button>
+  <h1>Helios <span class="tag">Operational Forecasting &amp; Variance</span></h1>
+  <p class="sub">Live preview rendered from the Helios warehouse · synthetic data · structural break simulated <b id="brk"></b></p>
+</header>
+<nav>
+  <button class="on" data-p="exec">Executive summary</button>
+  <button data-p="variance">Variance</button>
+  <button data-p="workforce">Workforce</button>
+  <button data-p="health">Model health</button>
+</nav>
+<main>
+  <section class="page on" id="exec">
+    <div class="grid k5" id="kpis" style="margin-bottom:16px"></div>
+    <div class="grid c2">
+      <div class="card"><h3>Total headcount — actual &amp; 6-month forecast</h3>
+        <p class="note">SARIMA champion · shaded band = 80% prediction interval</p>
+        <div id="fc"></div><div class="legend" id="fcLeg"></div></div>
+      <div class="card"><h3>Top variances — latest month</h3>
+        <p class="note">Actual vs budget · red = over (unfavourable), blue = under</p>
+        <div id="topv"></div></div>
+    </div>
+  </section>
+
+  <section class="page" id="variance">
+    <div class="grid c2e">
+      <div class="card"><h3>Budget vs actual by department</h3>
+        <p class="note">Latest month, all account categories</p>
+        <div id="deptba"></div><div class="legend" id="deptbaLeg"></div></div>
+      <div class="card"><h3>Salary variance — driver attribution</h3>
+        <p class="note">Volume + mix + rate reconciles to total variance</p>
+        <div id="decomp"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Total spend — budget vs actual over time</h3>
+      <div id="spendtrend"></div><div class="legend" id="spendLeg"></div></div>
+  </section>
+
+  <section class="page" id="workforce">
+    <div class="card"><h3>Headcount composition — employees vs contractors</h3>
+      <p class="note">Stacked FTE per month · the reorg shifts work to contractors post-break</p>
+      <div id="hcstack"></div><div class="legend" id="hcLeg"></div></div>
+    <div class="grid c2e" style="margin-top:16px">
+      <div class="card"><h3>Vacancy rate by department</h3>
+        <p class="note">(planned − filled) ÷ planned · negative = staffed above plan</p>
+        <div id="vac"></div></div>
+      <div class="card"><h3>Contractor share by department</h3>
+        <p class="note">contractor FTE ÷ total FTE</p>
+        <div id="cmix"></div></div>
+    </div>
+  </section>
+
+  <section class="page" id="health">
+    <div class="grid c2e">
+      <div class="card"><h3>Forecast accuracy by target</h3>
+        <p class="note">Champion MAPE (lower is better) · rolling-origin backtest</p>
+        <div id="acc"></div></div>
+      <div class="card"><h3>Data quality — quarantined records</h3>
+        <p class="note">By reason · nothing silently dropped</p>
+        <div id="qa"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Drift monitoring &amp; retraining</h3>
+      <p class="note">Per target · the month-24 reorg triggers detection → retraining → challenger promotion</p>
+      <table id="drift"><thead><tr><th>Target</th><th>Status</th><th>Triggered by</th><th class="num">Challenger gain</th></tr></thead><tbody></tbody></table></div>
+  </section>
+  <p class="foot" id="foot"></p>
+</main>
+<script>
+const D = /*__DATA__*/;
+const $ = s => document.querySelector(s);
+const tt = $('#tt');
+const money = v => (v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0});
+const pct = v => (v>=0?'+':'')+(v*100).toFixed(1)+'%';
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function hover(el,html){el.addEventListener('mousemove',e=>{tt.innerHTML=html;tt.style.opacity=1;tt.style.left=Math.min(e.clientX+14,innerWidth-250)+'px';tt.style.top=(e.clientY+14)+'px';});el.addEventListener('mouseleave',()=>tt.style.opacity=0);}
+const NS='http://www.w3.org/2000/svg';
+function svg(w,h){const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox',`0 0 ${w} ${h}`);s.setAttribute('width',w);s.setAttribute('height',h);return s;}
+function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+
+$('#brk').textContent=D.structural_break;
+$('#foot').textContent='Generated from '+D.generated_from+'. Every figure is real output of the Helios pipeline; data is synthetic by design. This HTML preview mirrors the Power BI four-page design (see dashboard_spec.md).';
+
+// ---- KPI tiles ----
+function kpis(){
+  const k=D.kpis, box=$('#kpis');
+  const items=[
+    ['Actual spend',money(k.actual),k.month,null],
+    ['Budget',money(k.budget),k.month,null],
+    ['Variance',money(k.variance),pct(k.variance_pct),k.variance>0?'up':'down'],
+    ['Headcount',k.headcount.toFixed(0)+' FTE',k.month,null],
+    ['Material variances',k.n_material,'flagged this month',null],
+  ];
+  for(const [lbl,val,sub,dir] of items){
+    const d=document.createElement('div');d.className='card tile';
+    d.innerHTML=`<div class="lbl">${lbl}</div><div class="val">${val}</div>`+
+      (dir?`<div class="delta ${dir}">${dir==='up'?'▲':'▼'} ${sub}</div>`:`<div class="delta" style="color:var(--muted)">${sub}</div>`);
+    box.appendChild(d);
+  }
+}
+
+// ---- line chart with band ----
+function lineChart(mount,cfg){
+  const W=cfg.w||560,H=cfg.h||240,P={l:cfg.padL||48,r:14,t:10,b:34};
+  const yfmt=cfg.yfmt||(v=>Math.round(v));
+  const s=svg(W,H);
+  const xs=cfg.x, n=xs.length;
+  let lo=Infinity,hi=-Infinity;
+  cfg.series.forEach(se=>se.y.forEach(v=>{lo=Math.min(lo,v);hi=Math.max(hi,v)}));
+  if(cfg.band){cfg.band.lo.forEach(v=>lo=Math.min(lo,v));cfg.band.hi.forEach(v=>hi=Math.max(hi,v));}
+  const pad=(hi-lo)*0.1||1;lo-=pad;hi+=pad;
+  const X=i=>P.l+(W-P.l-P.r)*(i/(n-1)), Y=v=>H-P.b-(H-P.t-P.b)*((v-lo)/(hi-lo));
+  for(let g=0;g<=4;g++){const v=lo+(hi-lo)*g/4,y=Y(v);
+    s.appendChild(el('line',{x1:P.l,y1:y,x2:W-P.r,y2:y,stroke:css('--grid'),'stroke-width':1}));
+    s.appendChild(el('text',{x:P.l-6,y:y+3,'text-anchor':'end',class:'ax'})).textContent=yfmt(v);}
+  cfg.x.forEach((lb,i)=>{if(i%6===0||i===n-1){s.appendChild(el('text',{x:X(i),y:H-P.b+14,'text-anchor':'middle',class:'ax'})).textContent=lb;}});
+  if(cfg.band){
+    let path='';const bi=cfg.band.xi;
+    bi.forEach((xi,i)=>path+=(i?'L':'M')+X(xi)+' '+Y(cfg.band.hi[i]));
+    for(let i=bi.length-1;i>=0;i--)path+='L'+X(bi[i])+' '+Y(cfg.band.lo[i]);
+    path+='Z';s.appendChild(el('path',{d:path,fill:css('--s1'),opacity:0.14}));}
+  cfg.series.forEach(se=>{
+    let d='';se.xi.forEach((xi,i)=>d+=(i?'L':'M')+X(xi)+' '+Y(se.y[i]));
+    s.appendChild(el('path',{d,fill:'none',stroke:se.color,'stroke-width':2,'stroke-dasharray':se.dash||'0'}));
+    se.xi.forEach((xi,i)=>{const c=el('circle',{cx:X(xi),cy:Y(se.y[i]),r:se.dash?3:0,fill:se.color});
+      if(se.dash){const g=el('circle',{cx:X(xi),cy:Y(se.y[i]),r:9,fill:'transparent'});hover(g,`<b>${se.name}</b><br>${cfg.x[xi]}: ${se.y[i]}`);s.appendChild(g);}s.appendChild(c);});
+  });
+  // invisible hover dots on first series
+  cfg.series[0].xi.forEach((xi,i)=>{const g=el('circle',{cx:X(xi),cy:Y(cfg.series[0].y[i]),r:10,fill:'transparent'});hover(g,`<b>${cfg.x[xi]}</b><br>${cfg.series[0].name}: ${cfg.series[0].y[i]}`);s.appendChild(g);});
+  mount.appendChild(s);
+}
+
+// ---- bar chart: horizontal or vertical, grouped, diverging ----
+function barChart(mount,cfg){
+  const horiz=cfg.horiz, cats=cfg.cats, series=cfg.series, div=cfg.diverging;
+  const W=560, rowH=cfg.rowH||30, H=horiz?(cats.length*rowH+30):240;
+  const s=svg(W, H);
+  const fmt=cfg.fmt||(v=>v);
+  if(horiz){
+    // Value labels live in a fixed right-hand gutter (right-aligned), decoupled
+    // from bar ends, so a long negative bar never collides with a category label.
+    const GUT=76, P={l:cfg.labelW||150,r:GUT,t:6,b:6};
+    let max=0,min=0;series.forEach(se=>se.v.forEach(v=>{max=Math.max(max,v);min=Math.min(min,v)}));
+    if(!div)min=0; const span=Math.max(max, -min)||1;
+    const zeroX= div? P.l+(W-P.l-P.r)*(-min/(max-min||1)) : P.l;
+    const X=v=> div ? P.l+(W-P.l-P.r)*((v-min)/(max-min||1)) : P.l+(W-P.l-P.r)*(v/span);
+    cats.forEach((c,i)=>{
+      const y=P.t+i*rowH, bh=rowH*0.56;
+      const v=series[0].v[i];
+      const col=cfg.colorFn?cfg.colorFn(v,i):series[0].color;
+      const x0=div?zeroX:P.l, x1=X(v);
+      const rx=Math.min(x0,x1), rw=Math.abs(x1-x0);
+      const r=el('rect',{x:rx,y:y+(rowH-bh)/2,width:Math.max(rw,1),height:bh,rx:3,fill:col});
+      hover(r,`<b>${c}</b><br>${cfg.tip?cfg.tip(v,i):fmt(v)}`);s.appendChild(r);
+      s.appendChild(el('text',{x:P.l-8,y:y+rowH/2+3,'text-anchor':'end',class:'ax'})).textContent=c;
+      const t=el('text',{x:W-4,y:y+rowH/2+3,'text-anchor':'end',class:'ax'});t.textContent=fmt(v);s.appendChild(t);
+    });
+    if(div)s.appendChild(el('line',{x1:zeroX,y1:P.t,x2:zeroX,y2:H-P.b,stroke:css('--baseline'),'stroke-width':1}));
+  } else {
+    const P={l:52,r:12,t:10,b:34};
+    let max=0;series.forEach(se=>se.v.forEach(v=>max=Math.max(max,v)));max*=1.1||1;
+    const bw=(W-P.l-P.r)/cats.length, gw=bw*0.7, sw=gw/series.length;
+    const Y=v=>H-P.b-(H-P.t-P.b)*(v/max);
+    for(let g=0;g<=4;g++){const val=max*g/4,y=Y(val);s.appendChild(el('line',{x1:P.l,y1:y,x2:W-P.r,y2:y,stroke:css('--grid'),'stroke-width':1}));
+      s.appendChild(el('text',{x:P.l-6,y:y+3,'text-anchor':'end',class:'ax'})).textContent=cfg.axfmt?cfg.axfmt(val):Math.round(val);}
+    cats.forEach((c,i)=>{
+      series.forEach((se,j)=>{const x=P.l+i*bw+(bw-gw)/2+j*sw, v=se.v[i];
+        const r=el('rect',{x:x+1,y:Y(v),width:sw-2,height:H-P.b-Y(v),rx:3,fill:se.color});
+        hover(r,`<b>${c}</b><br>${se.name}: ${fmt(v)}`);s.appendChild(r);});
+      s.appendChild(el('text',{x:P.l+i*bw+bw/2,y:H-P.b+14,'text-anchor':'middle',class:'ax'})).textContent=c;
+    });
+  }
+  mount.appendChild(s);
+}
+
+function legend(mount,items){mount.innerHTML=items.map(([c,l])=>`<span><i class="sw" style="background:${css(c)}"></i>${l}</span>`).join('');}
+
+// ==== EXECUTIVE ====
+kpis();
+(function(){
+  const f=D.forecast, hx=f.hist_months.concat(f.fc_months);
+  const histXi=f.hist.map((_,i)=>i), fcXi=f.fc_mean.map((_,i)=>f.hist.length+i);
+  const bandXi=[f.hist.length-1,...fcXi];
+  lineChart($('#fc'),{
+    x:hx,
+    series:[
+      {name:'Actual',color:css('--s1'),y:f.hist,xi:histXi},
+      {name:'Forecast',color:css('--s3'),dash:'5 4',y:[f.hist[f.hist.length-1],...f.fc_mean],xi:bandXi},
+    ],
+    band:{xi:bandXi,lo:[f.hist[f.hist.length-1],...f.fc_lo],hi:[f.hist[f.hist.length-1],...f.fc_hi]},
+  });
+  legend($('#fcLeg'),[['--s1','Actual headcount'],['--s3','Forecast (80% band)']]);
+})();
+barChart($('#topv'),{horiz:true,labelW:170,rowH:30,cats:D.top_variances.map(v=>v.label),
+  series:[{v:D.top_variances.map(v=>v.variance)}],diverging:true,
+  colorFn:v=>v>0?css('--critical'):css('--s1'),fmt:money,tip:(v,i)=>`${money(v)} (${pct(D.top_variances[i].pct)})`});
+
+// ==== VARIANCE ====
+barChart($('#deptba'),{cats:D.dept_budget_actual.map(d=>d.dept),
+  series:[{name:'Budget',color:css('--baseline'),v:D.dept_budget_actual.map(d=>d.budget)},
+          {name:'Actual',color:css('--s1'),v:D.dept_budget_actual.map(d=>d.actual)}],
+  fmt:money,axfmt:v=>'$'+(v/1e6).toFixed(1)+'M'});
+legend($('#deptbaLeg'),[['--baseline','Budget'],['--s1','Actual']]);
+(function(){
+  const d=D.decomposition;
+  const cats=['Volume','Mix','Rate','Total'];
+  const vals=[d.volume_variance,d.mix_variance,d.rate_variance,d.total_variance];
+  barChart($('#decomp'),{horiz:true,labelW:70,rowH:34,cats,series:[{v:vals}],diverging:true,
+    colorFn:(v,i)=>i===3?css('--s5'):(v>0?css('--critical'):css('--s1')),fmt:money});
+})();
+(function(){
+  const st=D.spend_trend, xi=st.months.map((_,i)=>i);
+  lineChart($('#spendtrend'),{x:st.months,w:1100,h:300,padL:56,
+    yfmt:v=>'$'+(v/1e6).toFixed(1)+'M',
+    series:[{name:'Budget',color:css('--baseline'),y:st.budget,xi},
+            {name:'Actual',color:css('--s1'),y:st.actual,xi}]});
+})();
+legend($('#spendLeg'),[['--baseline','Budget'],['--s1','Actual']]);
+
+// ==== WORKFORCE ====
+(function(){
+  // stacked bars employee+contractor
+  const W=1100,H=260,P={l:46,r:12,t:10,b:34},m=D.months,n=m.length;
+  const s=svg(W,H);const emp=D.headcount_total.employee,con=D.headcount_total.contractor;
+  let max=0;for(let i=0;i<n;i++)max=Math.max(max,emp[i]+con[i]);max*=1.1;
+  const bw=(W-P.l-P.r)/n,Y=v=>H-P.b-(H-P.t-P.b)*(v/max);
+  for(let g=0;g<=4;g++){const v=max*g/4,y=Y(v);s.appendChild(el('line',{x1:P.l,y1:y,x2:W-P.r,y2:y,stroke:css('--grid'),'stroke-width':1}));s.appendChild(el('text',{x:P.l-6,y:y+3,'text-anchor':'end',class:'ax'})).textContent=Math.round(v);}
+  for(let i=0;i<n;i++){const x=P.l+i*bw+bw*0.15,w=bw*0.7;
+    const eh=(H-P.t-P.b)*(emp[i]/max),ch=(H-P.t-P.b)*(con[i]/max);
+    const re=el('rect',{x,y:Y(emp[i]),width:w,height:eh,fill:css('--s1')});hover(re,`<b>${m[i]}</b><br>Employees: ${emp[i]} FTE`);s.appendChild(re);
+    const rc=el('rect',{x,y:Y(emp[i]+con[i]),width:w,height:ch,fill:css('--s3')});hover(rc,`<b>${m[i]}</b><br>Contractors: ${con[i]} FTE`);s.appendChild(rc);
+    if(i%6===0||i===n-1)s.appendChild(el('text',{x:x+w/2,y:H-P.b+14,'text-anchor':'middle',class:'ax'})).textContent=m[i];}
+  // break marker
+  const bi=m.indexOf(D.structural_break);if(bi>=0){const bx=P.l+bi*bw;s.appendChild(el('line',{x1:bx,y1:P.t,x2:bx,y2:H-P.b,stroke:css('--critical'),'stroke-width':1.5,'stroke-dasharray':'4 3'}));s.appendChild(el('text',{x:bx+4,y:P.t+10,class:'ax',fill:css('--critical')})).textContent='reorg';}
+  $('#hcstack').appendChild(s);
+  legend($('#hcLeg'),[['--s1','Employees'],['--s3','Contractors'],['--critical','Structural break']]);
+})();
+barChart($('#vac'),{horiz:true,labelW:130,rowH:30,cats:D.vacancy.map(v=>v.dept),
+  series:[{v:D.vacancy.map(v=>v.rate)}],diverging:true,
+  colorFn:v=>v>0?css('--s1'):css('--serious'),fmt:v=>pct(v)});
+barChart($('#cmix'),{horiz:true,labelW:130,rowH:30,cats:D.contractor_mix.map(v=>v.dept),
+  series:[{v:D.contractor_mix.map(v=>v.share)}],
+  colorFn:()=>css('--s3'),fmt:v=>(v*100).toFixed(1)+'%'});
+
+// ==== MODEL HEALTH ====
+barChart($('#acc'),{horiz:true,labelW:150,rowH:26,cats:D.accuracy.map(a=>a.target),
+  series:[{v:D.accuracy.map(a=>a.mape)}],
+  colorFn:v=>v<0.05?css('--good'):v<0.10?css('--s2'):css('--warning'),
+  fmt:v=>(v*100).toFixed(1)+'%',tip:(v,i)=>`${D.accuracy[i].model} · MAPE ${(v*100).toFixed(1)}%`});
+barChart($('#qa'),{horiz:true,labelW:160,rowH:30,cats:D.quarantine.map(q=>q.reason),
+  series:[{v:D.quarantine.map(q=>q.rows)}],colorFn:()=>css('--s5'),fmt:v=>v+' rows'});
+(function(){
+  const tb=$('#drift tbody');
+  D.drift.forEach(d=>{
+    const status=d.promoted?['good','↻ retrained → promoted']:d.retrain?['warn','drift → retraining']:['good','stable'];
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${d.target}</td><td><span class="pill ${status[0]}">${status[1]}</span></td>`+
+      `<td style="color:var(--text2)">${d.reasons.join(', ')||'—'}</td>`+
+      `<td class="num">${d.improvement?('+'+(d.improvement*100).toFixed(0)+'%'):'—'}</td>`;
+    tb.appendChild(tr);
+  });
+})();
+
+// ---- nav + theme ----
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$('#'+b.dataset.p).classList.add('on');
+});
+$('#themeBtn').onclick=()=>{const r=document.documentElement;
+  const cur=r.getAttribute('data-theme')|| (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  r.setAttribute('data-theme',cur==='dark'?'light':'dark');location.reload();};
+</script>
+</body>
+</html>
