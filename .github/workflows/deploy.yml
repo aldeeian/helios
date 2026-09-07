@@ -1,0 +1,64 @@
+name: Deploy
+
+# Build the image and deploy to Azure Container Apps on merge to main.
+# The data-quality gate blocks the deploy if the pipeline's own tests fail —
+# a broken data contract never reaches production.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # OIDC federated login to Azure — no stored cloud secret
+
+env:
+  IMAGE_NAME: helios-api
+
+jobs:
+  gate:
+    name: Data-quality & test gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m pytest -q
+      - name: Data-quality gate (pipeline must produce valid data)
+        run: |
+          python -m src.datagen --seed 42
+          python -m src.reconciliation
+          python -m src.warehouse
+
+  deploy:
+    name: Build & deploy to Azure
+    needs: gate
+    runs-on: ubuntu-latest
+    # Requires repo/environment secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID,
+    # AZURE_SUBSCRIPTION_ID, ACR_LOGIN_SERVER, AZURE_RESOURCE_GROUP,
+    # AZURE_CONTAINERAPP_NAME. Configured once by the repo owner; none in git.
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build & push image to ACR
+        run: |
+          az acr build \
+            --registry "${{ secrets.ACR_LOGIN_SERVER }}" \
+            --image "${IMAGE_NAME}:${{ github.sha }}" \
+            --image "${IMAGE_NAME}:latest" \
+            .
+      - name: Deploy new revision to Container Apps
+        run: |
+          az containerapp update \
+            --name "${{ secrets.AZURE_CONTAINERAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ secrets.ACR_LOGIN_SERVER }}/${IMAGE_NAME}:${{ github.sha }}"

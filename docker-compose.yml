@@ -1,0 +1,36 @@
+# Local full-stack run: Postgres warehouse + the Helios API against it.
+# `docker compose up` then seed the warehouse with `python -m src.warehouse`
+# pointed at HELIOS_WAREHOUSE_URL. For a zero-setup demo the API also runs
+# fine on its default SQLite warehouse without this compose file.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: helios
+      POSTGRES_PASSWORD: helios
+      POSTGRES_DB: helios
+    ports:
+      - "5432:5432"
+    volumes:
+      - helios_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helios"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HELIOS_WAREHOUSE_URL: postgresql+psycopg://helios:helios@db:5432/helios
+      HELIOS_CORS_ORIGINS: "http://localhost:3000"
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+
+volumes:
+  helios_pgdata:
