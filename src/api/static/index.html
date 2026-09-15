@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helios — Operational Forecasting &amp; Variance Explorer</title>
+<style>
+:root {
+  --page:#f9f9f7; --surface:#fcfcfb; --text:#0b0b0b; --text2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+  --s1:#2a78d6; --s2:#1baf7a; --s3:#eda100; --s5:#4a3aa7;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --page:#0d0d0d; --surface:#1a1a19; --text:#fff; --text2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+  --s1:#3987e5; --s2:#199e70; --s3:#c98500; --s5:#9085e9;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font-family:var(--font);
+     font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+header{padding:22px 0 16px;border-bottom:1px solid var(--border)}
+h1{font-size:20px;margin:0 0 3px}
+h2{font-size:15px;margin:0 0 10px}
+.sub{color:var(--text2);font-size:13px;margin:0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+      border-radius:999px;padding:3px 11px;border:1px solid var(--border)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.live{color:var(--good)} .pill.down{color:var(--critical)} .pill.wait{color:var(--muted)}
+
+.banner{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+        padding:14px 16px;margin:16px 0;color:var(--text2);font-size:13px}
+.banner b{color:var(--text)}
+.banner ul{margin:8px 0 0;padding-left:18px} .banner li{margin:3px 0}
+details summary{cursor:pointer;font-weight:600;color:var(--text);list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary:before{content:"▸ ";color:var(--muted)}
+details[open] summary:before{content:"▾ "}
+
+.controls{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;
+          padding:16px 0;border-bottom:1px solid var(--border)}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+      color:var(--muted);font-weight:600;margin-bottom:4px}
+select,input,button{font:inherit;color:var(--text);background:var(--surface);
+       border:1px solid var(--border);border-radius:7px;padding:7px 10px}
+select{min-width:170px;cursor:pointer}
+button{cursor:pointer;font-weight:600}
+button.primary{background:var(--s1);border-color:var(--s1);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+
+section{padding:22px 0;border-bottom:1px solid var(--border)}
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.kpi .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+        font-weight:600}
+.kpi .v{font-size:22px;font-weight:700;margin:5px 0 2px;font-variant-numeric:tabular-nums}
+.kpi .n{font-size:12px;color:var(--text2)}
+.up{color:var(--critical)} .down{color:var(--good)}
+
+.finding{background:var(--surface);border:1px solid var(--border);border-left-width:3px;
+         border-radius:8px;padding:11px 13px;margin-bottom:9px}
+.finding.warning{border-left-color:var(--warning)}
+.finding.critical{border-left-color:var(--critical)}
+.finding.info{border-left-color:var(--s1)}
+.finding .t{font-weight:600;margin-bottom:3px}
+.finding .d{color:var(--text2);font-size:13px}
+.sev{font-size:10px;font-weight:700;letter-spacing:.05em;padding:1px 7px;border-radius:999px;
+     color:#fff;margin-right:7px;vertical-align:1px}
+.sev.warning{background:var(--serious)} .sev.critical{background:var(--critical)}
+.sev.info{background:var(--s1)}
+
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:660px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+   color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--grid);white-space:nowrap}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--surface)}
+.badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;
+       border:1px solid var(--border);color:var(--text2)}
+.badge.mat{color:var(--serious);border-color:var(--serious)}
+.badge.anom{color:var(--critical);border-color:var(--critical)}
+
+.ask{display:flex;gap:8px;flex-wrap:wrap}
+.ask input{flex:1;min-width:260px}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);
+      border-radius:999px;padding:4px 11px;cursor:pointer}
+.chip:hover{color:var(--text);border-color:var(--s1)}
+.answer{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+        padding:14px;margin-top:14px}
+pre{font-family:var(--mono);font-size:12px;background:var(--page);border:1px solid var(--border);
+    border-radius:7px;padding:10px;overflow-x:auto;margin:9px 0 0;color:var(--text2)}
+.err{color:var(--critical)}
+footer{padding:20px 0 40px;color:var(--muted);font-size:12px}
+.load{color:var(--muted);font-size:13px;padding:10px 0}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <div class="row">
+    <div>
+      <h1>Helios</h1>
+      <p class="sub">Operational forecasting &amp; variance explorer</p>
+    </div>
+    <div class="spacer"></div>
+    <span id="health" class="pill wait"><span class="dot"></span>checking…</span>
+  </div>
+</header>
+
+<div class="banner">
+  <details>
+    <summary>What am I looking at?</summary>
+    <p style="margin:10px 0 0">
+      Helios forecasts <b>headcount</b> and <b>spend</b> for a simulated ~700-person
+      company, compares actuals against the plan, and explains the gaps. Pick a month
+      and a department above; everything below updates.
+    </p>
+    <ul>
+      <li><b>Budget</b> — what the plan said this month would cost.</li>
+      <li><b>Actual</b> — what it really cost.</li>
+      <li><b>Variance</b> — actual minus budget. Positive = over budget.</li>
+      <li><b>FTE</b> — full-time equivalents. One person at 50% time = 0.5 FTE.</li>
+      <li><b>Vacancy</b> — planned headcount not yet filled. When actual staffing
+          exceeds the plan this flips to <b>Over plan</b>.</li>
+      <li><b>Material</b> — the variance is big enough to act on (≥5% <i>and</i> ≥$50k).</li>
+      <li><b>Anomaly</b> — unusual for <i>this</i> line's own history, not just large.</li>
+    </ul>
+    <p style="margin:10px 0 0">
+      All data is <b>synthetic</b>, generated from a seed. A deliberate
+      reorganisation at month 24 breaks the forecast — that is the event the
+      drift monitors are meant to catch.
+    </p>
+  </details>
+</div>
+
+<div class="controls">
+  <div>
+    <label for="month">Month</label>
+    <select id="month"></select>
+  </div>
+  <div>
+    <label for="dept">Department</label>
+    <select id="dept"><option value="">All departments</option></select>
+  </div>
+  <div>
+    <label for="matonly">Filter</label>
+    <select id="matonly">
+      <option value="">All line items</option>
+      <option value="1">Material only</option>
+    </select>
+  </div>
+</div>
+
+<section>
+  <h2>Headline</h2>
+  <div id="kpis" class="kpis"><div class="load">Loading…</div></div>
+  <div id="kpiNote"></div>
+</section>
+
+<section>
+  <h2>Headcount vs plan</h2>
+  <div id="chart" class="scroll"><div class="load">Loading…</div></div>
+</section>
+
+<section>
+  <h2>Needs attention</h2>
+  <p class="sub" style="margin:-4px 0 11px">
+    Organisation-wide for the selected month — thresholds are set at the org
+    level, so this panel does not narrow with the department filter.
+  </p>
+  <div id="findings"><div class="load">Loading…</div></div>
+</section>
+
+<section>
+  <h2>Variance detail</h2>
+  <div id="variance" class="scroll"><div class="load">Loading…</div></div>
+</section>
+
+<section>
+  <h2>Ask a question</h2>
+  <p class="sub" style="margin-bottom:11px">
+    Plain English in, validated read-only SQL out. The generated query is shown
+    with every answer, so nothing is unauditable.
+  </p>
+  <div class="ask">
+    <input id="q" placeholder="e.g. Which department had the highest headcount last month?"
+           autocomplete="off">
+    <button id="askBtn" class="primary">Ask</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div id="answer"></div>
+</section>
+
+<footer>
+  Helios · synthetic data · read-only API ·
+  <a href="/docs" style="color:var(--s1)">API docs</a>
+</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt$ = n => n == null ? "—" :
+  (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString(undefined, {maximumFractionDigits: 0});
+const fmtPct = n => n == null ? "—" : (n >= 0 ? "+" : "") + (n * 100).toFixed(1) + "%";
+const fmtN = n => n == null ? "—" : Number(n).toLocaleString(undefined, {maximumFractionDigits: 0});
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
+  ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
+  return r.json();
+}
+
+function query() {
+  const p = new URLSearchParams();
+  if ($("#month").value) p.set("month", $("#month").value);
+  if ($("#dept").value) p.set("department", $("#dept").value);
+  return p;
+}
+
+// --- health ---------------------------------------------------------------
+async function loadHealth() {
+  const el = $("#health");
+  try {
+    const h = await api("/health");
+    el.className = "pill live";
+    el.innerHTML = `<span class="dot"></span>live · ${fmtN(h.fact_spend_rows)} spend rows`;
+  } catch (e) {
+    el.className = "pill down";
+    el.innerHTML = `<span class="dot"></span>warehouse down`;
+  }
+}
+
+// --- KPIs -----------------------------------------------------------------
+async function loadKpis() {
+  const box = $("#kpis");
+  box.innerHTML = '<div class="load">Loading…</div>';
+  try {
+    const k = await api("/api/kpis?" + query());
+    const dir = k.variance > 0 ? "up" : "down";
+    const word = k.variance > 0 ? "over budget" : "under budget";
+    box.innerHTML = [
+      card("Actual spend", fmt$(k.actual), k.budget != null ? `budget ${fmt$(k.budget)}` : ""),
+      card("Variance", fmt$(k.variance),
+           k.variance == null ? "" : `${fmtPct(k.variance_pct)} — ${word}`, dir),
+      card("Headcount", fmtN(k.total_fte) + " FTE",
+           k.contractor_fte != null ? `${fmtN(k.contractor_fte)} contractor` : ""),
+      // Negative vacancy = staffed above plan. "-11 FTE vacant" reads as a
+      // typo, so name the condition instead of showing a signed number.
+      vacancyCard(k),
+      card("Material variances", fmtN(k.material_variances),
+           `of ${fmtN(k.line_items)} line items`),
+    ].join("");
+    // A department with headcount but no spend is a reconciliation finding,
+    // not an empty screen — say so rather than showing five dashes.
+    $("#kpiNote").innerHTML = k.note
+      ? `<div class="banner" style="margin:12px 0 0;border-left:3px solid var(--warning)">
+           <b>Why is spend blank?</b> ${esc(k.note)}</div>` : "";
+  } catch (e) {
+    box.innerHTML = `<div class="load err">${esc(e.message)}</div>`;
+  }
+}
+const card = (k, v, n, cls = "") =>
+  `<div class="kpi"><div class="k">${k}</div><div class="v ${cls}">${v}</div>
+   <div class="n">${n || ""}</div></div>`;
+
+function vacancyCard(k) {
+  const plan = k.planned_fte != null ? `plan ${fmtN(k.planned_fte)} FTE` : "";
+  if (k.vacancy_fte == null) return card("Vacancy", "—", plan);
+  const over = k.vacancy_fte < 0;
+  return card(over ? "Over plan" : "Vacancy",
+              fmtN(Math.abs(k.vacancy_fte)) + " FTE",
+              plan + (over ? " — staffed above plan" : " — unfilled"),
+              over ? "up" : "");
+}
+
+// --- chart ----------------------------------------------------------------
+async function loadChart() {
+  const box = $("#chart");
+  box.innerHTML = '<div class="load">Loading…</div>';
+  try {
+    const d = await api("/api/headcount?" + (query().get("department")
+      ? "department=" + encodeURIComponent(query().get("department")) : ""));
+    box.innerHTML = d.series.length ? lineChart(d.series)
+      : '<div class="load">No headcount data.</div>';
+  } catch (e) {
+    box.innerHTML = `<div class="load err">${esc(e.message)}</div>`;
+  }
+}
+
+function lineChart(series) {
+  const W = 1100, H = 300, L = 56, R = 108, T = 16, B = 34;
+  const iw = W - L - R, ih = H - T - B;
+  const keys = [["total_fte", "var(--s1)", "Actual FTE"],
+                ["planned_fte", "var(--s3)", "Plan FTE"],
+                ["contractor_fte", "var(--s2)", "Contractors"]];
+  const vals = series.flatMap(p => keys.map(([k]) => p[k]).filter(v => v != null));
+  const max = Math.max(...vals) * 1.08, min = 0;
+  const x = i => L + (series.length < 2 ? iw / 2 : (i / (series.length - 1)) * iw);
+  const y = v => T + ih - ((v - min) / (max - min)) * ih;
+  const sel = $("#month").value;
+
+  let g = "";
+  for (let t = 0; t <= 4; t++) {
+    const v = min + (max - min) * t / 4, yy = y(v);
+    g += `<line x1="${L}" y1="${yy}" x2="${L + iw}" y2="${yy}" stroke="var(--grid)"/>
+          <text x="${L - 8}" y="${yy + 4}" text-anchor="end" fill="var(--muted)"
+                font-size="11">${Math.round(v)}</text>`;
+  }
+  // Month-24 structural break: the event everything downstream is about.
+  if (series.length > 24) {
+    const bx = x(24);
+    g += `<line x1="${bx}" y1="${T}" x2="${bx}" y2="${T + ih}" stroke="var(--critical)"
+                stroke-dasharray="4 4" opacity=".8"/>
+          <text x="${bx + 5}" y="${T + 12}" fill="var(--critical)" font-size="11"
+                font-weight="600">reorg</text>`;
+  }
+  const si = series.findIndex(p => p.month_start === sel);
+  if (si >= 0) g += `<line x1="${x(si)}" y1="${T}" x2="${x(si)}" y2="${T + ih}"
+                           stroke="var(--s5)" stroke-width="1.5" opacity=".55"/>`;
+
+  let paths = "", labels = "";
+  keys.forEach(([k, colour, name]) => {
+    const pts = series.map((p, i) => p[k] == null ? null : [x(i), y(p[k])]).filter(Boolean);
+    if (!pts.length) return;
+    paths += `<path d="${pts.map((p, i) => (i ? "L" : "M") + p[0] + " " + p[1]).join(" ")}"
+                    fill="none" stroke="${colour}" stroke-width="2"
+                    stroke-linejoin="round"/>`;
+    const last = pts[pts.length - 1];
+    labels += `<text x="${last[0] + 8}" y="${last[1] + 4}" fill="${colour}"
+                     font-size="11" font-weight="600">${name}</text>`;
+  });
+
+  const step = Math.ceil(series.length / 8);
+  let ticks = "";
+  series.forEach((p, i) => {
+    if (i % step) return;
+    ticks += `<text x="${x(i)}" y="${H - 12}" text-anchor="middle" fill="var(--muted)"
+                    font-size="11">${p.month_start}</text>`;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:660px"
+               role="img" aria-label="Headcount versus plan over time">
+    ${g}${paths}${labels}${ticks}
+    <line x1="${L}" y1="${T + ih}" x2="${L + iw}" y2="${T + ih}" stroke="var(--baseline)"/>
+  </svg>`;
+}
+
+// --- findings -------------------------------------------------------------
+async function loadFindings() {
+  const box = $("#findings");
+  box.innerHTML = '<div class="load">Loading…</div>';
+  try {
+    const p = new URLSearchParams();
+    if ($("#month").value) p.set("month", $("#month").value);
+    const d = await api("/api/findings?" + p);
+    box.innerHTML = d.count ? d.findings.map(f =>
+      `<div class="finding ${f.severity}">
+         <div class="t"><span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>
+           ${esc(f.title)}</div>
+         <div class="d">${esc(f.detail)}</div>
+       </div>`).join("")
+      : '<div class="load">No thresholds breached this month.</div>';
+  } catch (e) {
+    box.innerHTML = `<div class="load err">${esc(e.message)}</div>`;
+  }
+}
+
+// --- variance table -------------------------------------------------------
+async function loadVariance() {
+  const box = $("#variance");
+  box.innerHTML = '<div class="load">Loading…</div>';
+  try {
+    const p = query();
+    if ($("#matonly").value) p.set("material_only", "true");
+    const d = await api("/api/variance?" + p);
+    if (!d.count) {
+      box.innerHTML = `<div class="load">No spend line items for this selection${
+        $("#dept").value ? " — see the note above" : ""}.</div>`;
+      return;
+    }
+    box.innerHTML = `<table><thead><tr>
+        <th>Department</th><th>Category</th><th class="num">Budget</th>
+        <th class="num">Actual</th><th class="num">Variance</th>
+        <th class="num">%</th><th>Flags</th></tr></thead><tbody>` +
+      d.items.map(r => `<tr>
+        <td>${esc(r.department_name)}</td><td>${esc(r.account_category)}</td>
+        <td class="num">${fmt$(r.budget_amount)}</td>
+        <td class="num">${fmt$(r.actual_amount)}</td>
+        <td class="num ${r.variance_amount > 0 ? "up" : "down"}">${fmt$(r.variance_amount)}</td>
+        <td class="num ${r.variance_amount > 0 ? "up" : "down"}">${fmtPct(r.variance_pct)}</td>
+        <td>${r.material ? '<span class="badge mat">material</span> ' : ""}
+            ${r.anomaly ? '<span class="badge anom">anomaly</span>' : ""}</td>
+      </tr>`).join("") + "</tbody></table>";
+  } catch (e) {
+    box.innerHTML = `<div class="load err">${esc(e.message)}</div>`;
+  }
+}
+
+// --- NL agent -------------------------------------------------------------
+const EXAMPLES = [
+  "Which department had the highest headcount last month?",
+  "Show total spend by department for 2025",
+  "What is the contractor share of headcount by department?",
+  "Which cost centre had the largest budget overrun?",
+];
+$("#chips").innerHTML = EXAMPLES.map(q =>
+  `<span class="chip">${esc(q)}</span>`).join("");
+$("#chips").addEventListener("click", e => {
+  if (!e.target.classList.contains("chip")) return;
+  $("#q").value = e.target.textContent.trim();
+  ask();
+});
+
+async function ask() {
+  const q = $("#q").value.trim();
+  if (!q) return;
+  const box = $("#answer"), btn = $("#askBtn");
+  btn.disabled = true;
+  box.innerHTML = '<div class="answer load">Thinking…</div>';
+  try {
+    const r = await fetch("/api/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question: q}),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+    let html = `<div class="answer">`;
+    html += d.ok
+      ? `<div style="white-space:pre-wrap">${esc(d.answer)}</div>`
+      : `<div class="err">Could not answer: ${esc(d.error || "unknown")}</div>`;
+    if (d.sql) html += `<pre>${esc(d.sql)}</pre>`;
+    const meta = [d.engine && `engine: ${d.engine}`,
+                  d.tables_used?.length && `tables: ${d.tables_used.join(", ")}`]
+                 .filter(Boolean).join(" · ");
+    if (meta) html += `<div class="n" style="color:var(--muted);font-size:12px;
+                        margin-top:8px">${esc(meta)}</div>`;
+    box.innerHTML = html + "</div>";
+  } catch (e) {
+    box.innerHTML = `<div class="answer err">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("#askBtn").addEventListener("click", ask);
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter") ask(); });
+
+// --- boot -----------------------------------------------------------------
+function refresh() { loadKpis(); loadChart(); loadFindings(); loadVariance(); }
+
+async function boot() {
+  loadHealth();
+  try {
+    const f = await api("/api/filters");
+    $("#month").innerHTML = f.months.map(m =>
+      `<option value="${m}"${m === f.latest_month ? " selected" : ""}>${m}</option>`).join("");
+    $("#dept").innerHTML += f.departments.map(d =>
+      `<option value="${esc(d)}">${esc(d)}</option>`).join("");
+  } catch (e) {
+    document.querySelector(".controls").innerHTML =
+      `<div class="load err">Could not load filters: ${esc(e.message)}.
+       Has the warehouse been built? Run <code>python -m src.warehouse</code>.</div>`;
+  }
+  ["#month", "#dept", "#matonly"].forEach(s =>
+    $(s).addEventListener("change", refresh));
+  refresh();
+}
+boot();
+</script>
+</body>
+</html>
