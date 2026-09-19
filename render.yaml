@@ -1,0 +1,40 @@
+# Render blueprint: the API + explorer UI, backed by a managed Postgres.
+#
+# Render builds the Dockerfile server-side, so no local Docker is needed.
+# Deploy: push this repo to GitHub, then Render -> New -> Blueprint -> pick it.
+#
+# The warehouse must be populated before the service reports healthy — /health
+# returns 503 on an empty database by design, so a blank deploy shows as down
+# rather than serving an empty dashboard. See docs/runbook.md for the seed step.
+
+services:
+  - type: web
+    name: helios-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # Render injects PORT; the Dockerfile CMD already honours it.
+      - key: HELIOS_WAREHOUSE_URL
+        fromDatabase:
+          name: helios-warehouse
+          property: connectionString
+      # Same-origin UI, so the API does not need to be open to other sites.
+      - key: HELIOS_CORS_ORIGINS
+        value: "*"
+      # Alerting is off until these are set in the Render dashboard (not here —
+      # secrets never live in a committed file).
+      - key: HELIOS_ALERT_TO
+        sync: false
+      - key: HELIOS_ALERT_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: HELIOS_SLACK_WEBHOOK_URL
+        sync: false
+
+databases:
+  - name: helios-warehouse
+    plan: free
+    postgresMajorVersion: "16"
