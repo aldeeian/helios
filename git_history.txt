@@ -1,0 +1,139 @@
+09d53ef Documentation and demo: README front door, architecture, runbook, demo script
+.github/workflows/ci.yml
+DEMO.md
+README.md
+docs/architecture.md
+06f4de6 Deployment: FastAPI serving layer, container, Azure IaC, CI/CD
+.dockerignore
+.github/workflows/deploy.yml
+Dockerfile
+docker-compose.yml
+docs/runbook.md
+infra/main.bicep
+pyproject.toml
+src/api/__init__.py
+src/api/app.py
+tests/test_api.py
+200f0cd NL agent loop, offline stub, and golden-set evaluation harness
+pyproject.toml
+src/agent/__main__.py
+src/agent/evaluate.py
+src/agent/golden_set.py
+src/agent/llm.py
+src/agent/nl_agent.py
+tests/test_agent.py
+7b814d5 NL agent foundations: semantic layer and SQL safety guardrails
+src/agent/__init__.py
+src/agent/executor.py
+src/agent/guardrails.py
+src/agent/semantic.py
+b8627b8 Document orchestration and Power BI phases; wire dashboard into CI
+.github/workflows/ci.yml
+README.md
+8381d02 Live HTML dashboard rendered from the warehouse, with screenshots
+.gitignore
+powerbi/README.md
+powerbi/_dashboard_template.html
+powerbi/build_dashboard.py
+powerbi/screenshots/1-executive.png
+powerbi/screenshots/2-variance.png
+powerbi/screenshots/3-workforce.png
+powerbi/screenshots/4-model-health.png
+tests/test_dashboard.py
+b874ad2 Power BI semantic model: DAX measure library and four-page spec
+powerbi/dashboard_spec.md
+powerbi/dax_measures.md
+65c76a2 Prefect flows: daily data, weekly monitoring, monthly reporting
+flows/README.md
+flows/pipelines.py
+pyproject.toml
+28fca23 Pipeline steps as plain idempotent functions with freshness and QC gates
+flows/__init__.py
+flows/steps.py
+tests/test_flows.py
+1b44429 Document variance and drift phases; wire them into CI
+.github/workflows/ci.yml
+README.md
+docs/data_dictionary.md
+ef26484 Four-mode drift monitoring with champion-challenger retraining
+src/monitoring/__main__.py
+src/monitoring/monitors.py
+src/monitoring/pipeline.py
+src/monitoring/retrain.py
+tests/test_monitoring.py
+9ec6a57 Hand-rolled PSI and KS drift statistics
+src/monitoring/__init__.py
+src/monitoring/drift.py
+b9e1356 Variance analysis with volume/mix/rate driver attribution
+src/variance/__init__.py
+src/variance/__main__.py
+src/variance/analysis.py
+tests/test_variance.py
+d04f402 Add workforce plan source and vacancy analysis
+src/config.py
+src/datagen/__main__.py
+src/datagen/truth.py
+src/datagen/writers.py
+src/ingestion/readers.py
+src/reconciliation/__main__.py
+src/reconciliation/engine.py
+src/warehouse/load.py
+src/warehouse/schema.py
+tests/test_datagen.py
+tests/test_reconciliation.py
+tests/test_warehouse.py
+b7aa183 Fix pyfunc registration and document modeling decisions with real results
+docs/modeling_decisions.md
+src/forecasting/runner.py
+1a73d8a Wire warehouse and forecasting into CI, docs, and dependencies
+.github/workflows/ci.yml
+README.md
+docs/data_dictionary.md
+pyproject.toml
+5c8ee00 Backtest runner with MLflow tracking and honest champion gating
+src/forecasting/__main__.py
+src/forecasting/runner.py
+tests/test_forecasting.py
+d8b6fec Rolling-origin expanding-window backtesting
+src/forecasting/backtest.py
+3f16ea6 Model families: naive baselines, SARIMA, Prophet, XGBoost
+src/forecasting/models.py
+e7279ad Forecast targets from warehouse views plus explicit evaluation metrics
+src/forecasting/__init__.py
+src/forecasting/datasets.py
+src/forecasting/metrics.py
+5825c29 Warehouse tests: idempotency, SCD2 versioning, view correctness
+tests/test_warehouse.py
+8c6f65a Warehouse load with Type 2 SCD merge and idempotent facts
+src/warehouse/__main__.py
+src/warehouse/load.py
+b6f1dbc Add warehouse star schema with analytical views
+src/config.py
+src/warehouse/__init__.py
+src/warehouse/schema.py
+60dd892 Synthetic data foundation and reconciliation engine
+.env.example
+.github/workflows/ci.yml
+.gitignore
+README.md
+docs/architecture.md
+docs/data_dictionary.md
+pyproject.toml
+src/__init__.py
+src/config.py
+src/datagen/__init__.py
+src/datagen/__main__.py
+src/datagen/org_model.py
+src/datagen/sources.py
+src/datagen/truth.py
+src/datagen/writers.py
+src/ingestion/__init__.py
+src/ingestion/readers.py
+src/reconciliation/__init__.py
+src/reconciliation/__main__.py
+src/reconciliation/engine.py
+src/reconciliation/normalize.py
+tests/__init__.py
+tests/test_datagen.py
+tests/test_normalize.py
+tests/test_reconciliation.py
