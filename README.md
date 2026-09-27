@@ -1,4 +1,4 @@
-# Helios — Operational Forecasting & Variance Platform
+# Helios - Operational Forecasting & Variance Platform
 
 Helios forecasts operational headcount and spend, tracks forecast-vs-actual
 variance, explains that variance to business users, and detects when its own
