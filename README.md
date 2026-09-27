@@ -196,15 +196,15 @@ does nothing is harder to debug than an obviously absent one.
 
 ## Security
 
-- **No secrets in the repo** — env-based config, gitignored `.env`, `.env.example`
+- **No secrets in the repo** - env-based config, gitignored `.env`, `.env.example`
   documents the shape; the Azure DB URL lives only in Key Vault and is injected
   as a secret reference.
-- **No SQL string-building** — SQLAlchemy with fixed statements everywhere; the
+- **No SQL string-building** - SQLAlchemy with fixed statements everywhere; the
   NL agent's generated SQL passes an AST-level guardrail (parse, not regex)
   before execution, then runs as read-only with a statement timeout.
-- **Generated data is gitignored** — even synthetic PII-shaped data (names,
+- **Generated data is gitignored** - even synthetic PII-shaped data (names,
   salaries) never enters git history; it is reproducible from the seed instead.
-- **Ground truth is quarantined from the pipeline** — evaluation-only, never read
+- **Ground truth is quarantined from the pipeline** - evaluation-only, never read
   by reconciliation or forecasting, so accuracy claims stay honest.
 - The API is **read-only by design**; the container runs as a **non-root** user.
 
